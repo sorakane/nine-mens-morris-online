@@ -171,7 +171,22 @@ export function resign(source: Game, player: 1 | 2): Game {
   return g;
 }
 export type Member = { id: string; name: string };
+export type Activity = {
+  kind: 'place' | 'move' | 'capture' | 'undo' | 'start' | 'resign';
+  actor: string;
+  from: number | null;
+  to: number | null;
+  removed?: number;
+  mill?: boolean;
+};
+export const pointName = (i: number) =>
+  String.fromCharCode(65 + POINTS[i][0]) + (7 - POINTS[i][1]);
 export type Room = {
+  players: number[];
+  nextPlayers: number[];
+  undo: { requester: string } | null;
+  canUndo: boolean;
+  activity: Activity | null;
   id: string;
   members: Member[];
   round: number;

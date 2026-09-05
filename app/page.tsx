@@ -7,7 +7,8 @@ import {
   count,
   capturable,
   adjacent,
-  seats,
+  pointName,
+  type Activity,
   type Room,
 } from '@/lib/game';
 import {
@@ -20,6 +21,8 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
+import { Music } from '@/components/music';
+import { PlayerPicker } from '@/components/player-picker';
 export default function Home() {
   const [room, setRoom] = useState<Room | null>(null),
     [roomId, setRoomId] = useState(''),
@@ -31,6 +34,7 @@ export default function Home() {
     [selected, setSelected] = useState<number | null>(null),
     [copied, setCopied] = useState(false),
     [resignOpen, setResignOpen] = useState(false),
+    [selectionDirty, setSelectionDirty] = useState(false),
     [url, setUrl] = useState('');
   const latest = useRef(-1);
   function accept(data: Room) {
@@ -113,11 +117,12 @@ export default function Home() {
     }
   }
   const game = room?.game || newGame(),
-    pair = seats(room?.round || 1),
+    pair = room?.players || [],
     myIndex = room?.members.findIndex((m) => m.id === room.you) ?? -1,
     myColor = pair.indexOf(myIndex) + 1,
     playing = game.status === 'playing',
-    canPlay = playing && myColor === game.turn && !busy && connected;
+    canPlay =
+      playing && myColor === game.turn && !busy && connected && !room?.undo;
   const playerName = (color: number) =>
     room?.members[pair[color - 1]]?.name || '参加待ち';
   const phase = game.capture
@@ -129,22 +134,77 @@ export default function Home() {
         : '駒を動かす';
   const heading = !room
     ? 'さあ、盤を囲もう。'
-    : game.status === 'waiting'
-      ? '3人で、準備をしよう。'
-      : game.status === 'finished'
-        ? game.winner
-          ? `${playerName(game.winner)} の勝ち`
-          : '引き分け'
-        : canPlay
-          ? 'あなたの一手です。'
-          : `${playerName(game.turn)} の手番`;
+    : room.undo
+      ? '1手戻す返答を待っています'
+      : game.status === 'waiting'
+        ? '対戦者を選んで、はじめよう。'
+        : game.status === 'finished'
+          ? game.winner
+            ? `${playerName(game.winner)} さんの勝ち`
+            : '引き分け'
+          : `${playerName(game.turn)} さん、操作してください`;
+  const activity = room?.activity;
+  const actorName =
+    room?.members.find((m) => m.id === activity?.actor)?.name || '';
+  function describe(a: Activity | null | undefined) {
+    if (!a) return '最初の一手を待っています。';
+    if (a.kind === 'start')
+      return '対局が始まりました。白の人から駒を置いてください。';
+    if (a.kind === 'undo') return '双方の同意で、直前の1手を戻しました。';
+    if (a.kind === 'resign') return `${actorName} さんが投了しました。`;
+    const step =
+      a.to === null
+        ? ''
+        : a.from === null
+          ? `${pointName(a.to)} に駒を置きました`
+          : `${pointName(a.from)} → ${pointName(a.to)} に動かしました`;
+    return `${actorName} さんが ${step}${a.removed !== undefined ? `。${pointName(a.removed)} の駒を取りました` : a.mill ? '。3つ揃いました！' : ''}`;
+  }
+  const centerText =
+    activity?.kind === 'undo'
+      ? '1手戻しました'
+      : activity?.kind === 'start'
+        ? '対局開始'
+        : activity?.kind === 'resign'
+          ? '投了'
+          : activity?.removed !== undefined
+            ? '駒を取りました'
+            : activity?.from !== null && activity?.from !== undefined
+              ? '動かしました'
+              : activity?.to !== null && activity?.to !== undefined
+                ? '置きました'
+                : '同じ盤を囲もう';
+  const instruction = room?.undo
+    ? '相手が承認すると盤面が戻ります。返答があるまで操作はお休みです。'
+    : game.status === 'finished'
+      ? game.reason
+      : game.status === 'waiting'
+        ? '部屋を作った人が対戦者2人を選び、対局を開始してください。'
+        : myColor === 0
+          ? `${playerName(game.turn)} さんの手番です。あなたは観戦中です。`
+          : myColor !== game.turn
+            ? `${playerName(game.turn)} さんが「${phase}」操作をしています。`
+            : game.capture
+              ? '3つ揃いました！ 光る相手の駒を1つ選んで取ってください。'
+              : game.remaining[1] + game.remaining[2] > 0
+                ? '光る交点を1つ選んで、駒を置いてください。'
+                : selected === null
+                  ? '① 動かしたい自分の駒を選んでください。'
+                  : '② 光る移動先を選んでください。自分の駒をもう一度押すと選び直せます。';
   function legal(i: number) {
     if (!canPlay) return false;
     if (game.capture) return capturable(game, i);
     if (game.remaining[1] + game.remaining[2] > 0) return !game.board[i];
-    if (selected === null) return game.board[i] === myColor;
+    if (selected === null)
+      return (
+        game.board[i] === myColor &&
+        (count(game, myColor) === 3 ||
+          game.board.some((v, j) => !v && adjacent(i, j)))
+      );
     return (
-      game.board[i] === myColor ||
+      (game.board[i] === myColor &&
+        (count(game, myColor) === 3 ||
+          game.board.some((v, j) => !v && adjacent(i, j)))) ||
       (!game.board[i] && (count(game, myColor) === 3 || adjacent(selected, i)))
     );
   }
@@ -153,7 +213,8 @@ export default function Home() {
     if (
       !game.capture &&
       game.remaining[1] + game.remaining[2] === 0 &&
-      game.board[i] === myColor
+      game.board[i] === myColor &&
+      legal(i)
     ) {
       setSelected(selected === i ? null : i);
       return;
@@ -175,7 +236,7 @@ export default function Home() {
         <a className="brand" href="/">
           ▣ MORRIS<span>ナインメンズモリス</span>
         </a>
-        <span className="pill">2人対戦 · 1人観戦</span>
+        <Music />
       </header>
       <div className="game-layout">
         <section>
@@ -192,8 +253,89 @@ export default function Home() {
               {String(room?.round || 1).padStart(2, '0')}
             </span>
           </div>
+          {room && (
+            <div className="turn-guide" aria-live="polite">
+              <span className="turn-badge">
+                {game.status === 'waiting'
+                  ? '準備'
+                  : game.status === 'finished'
+                    ? '終了'
+                    : room.undo
+                      ? '確認中'
+                      : myColor === game.turn
+                        ? 'あなたの番'
+                        : '手番'}
+              </span>
+              <div>
+                <strong>
+                  {playing
+                    ? `${playerName(game.turn)} さん：${phase}`
+                    : game.status === 'finished'
+                      ? '対局が終了しました'
+                      : '対戦2人・観戦1人'}
+                </strong>
+                <p>{instruction}</p>
+              </div>
+            </div>
+          )}
+          {room?.undo && (
+            <div className="undo-panel" role="status">
+              <strong>
+                {room.members.find((m) => m.id === room.undo?.requester)?.name}{' '}
+                さんが1手戻すことを希望しています
+              </strong>
+              <p>ミルを作った手は、駒取りもまとめて戻します。</p>
+              {myColor > 0 && (
+                <div className="undo-buttons">
+                  {room.undo.requester === room.you ? (
+                    <button
+                      className="secondary"
+                      disabled={busy || !connected}
+                      onClick={() => void action('undo-cancel')}
+                    >
+                      申請を取り消す
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        className="primary"
+                        disabled={busy || !connected}
+                        onClick={() => void action('undo-approve')}
+                      >
+                        同意して1手戻す
+                      </button>
+                      <button
+                        className="secondary"
+                        disabled={busy || !connected}
+                        onClick={() => void action('undo-reject')}
+                      >
+                        戻さず続ける
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+          <div className="activity-strip" aria-live="polite">
+            <span>直前の一手</span>
+            <p>{describe(activity)}</p>
+          </div>
           <div className="board">
             <svg viewBox="-0.5 -0.5 7 7" aria-hidden="true">
+              <defs>
+                <marker
+                  id="move-arrow"
+                  viewBox="0 0 10 10"
+                  refX="8"
+                  refY="5"
+                  markerWidth="4"
+                  markerHeight="4"
+                  orient="auto-start-reverse"
+                >
+                  <path d="M0 0L10 5L0 10Z" fill="#e6fa92" />
+                </marker>
+              </defs>
               {[0, 1, 2].map((n) => (
                 <rect
                   key={n}
@@ -229,12 +371,47 @@ export default function Home() {
               {POINTS.map(([x, y], i) => (
                 <circle key={i} cx={x} cy={y} r=".065" fill="currentColor" />
               ))}
+              {activity?.from !== null &&
+                activity?.from !== undefined &&
+                activity.to !== null && (
+                  <g className="move-trail" key={JSON.stringify(activity)}>
+                    <circle
+                      cx={POINTS[activity.from][0]}
+                      cy={POINTS[activity.from][1]}
+                      r=".21"
+                      fill="none"
+                      stroke="#e6fa92"
+                      strokeWidth=".025"
+                      strokeDasharray=".06 .045"
+                    />
+                    <line
+                      x1={POINTS[activity.from][0]}
+                      y1={POINTS[activity.from][1]}
+                      x2={POINTS[activity.to][0]}
+                      y2={POINTS[activity.to][1]}
+                      stroke="#e6fa92"
+                      strokeWidth=".045"
+                      strokeDasharray=".10 .07"
+                      markerEnd="url(#move-arrow)"
+                    />
+                  </g>
+                )}
+              {POINTS.map(([x, y], i) => (
+                <text
+                  key={`label-${i}`}
+                  x={x + 0.18}
+                  y={y + 0.33}
+                  className="point-label"
+                >
+                  {pointName(i)}
+                </text>
+              ))}
             </svg>
             <div className="board-controls">
               {POINTS.map(([x, y], i) => (
                 <button
                   key={i}
-                  className={`node stone-${game.board[i]} ${selected === i ? 'selected' : ''} ${legal(i) ? 'legal' : ''} ${game.last === i ? 'last' : ''}`}
+                  className={`node stone-${game.board[i]} ${selected === i ? 'selected' : ''} ${legal(i) ? 'legal' : ''} ${activity?.to === i ? 'latest-destination' : ''} ${activity?.removed === i ? 'removed' : ''} ${game.capture && game.board[i] === 3 - game.turn && !capturable(game, i) ? 'protected' : ''}`}
                   style={{
                     left: `${((x + 0.5) / 7) * 100}%`,
                     top: `${((y + 0.5) / 7) * 100}%`,
@@ -250,6 +427,18 @@ export default function Home() {
                 </button>
               ))}
             </div>
+            <div className="board-center" key={JSON.stringify(activity)}>
+              <span className="center-actor">
+                {actorName ? `${actorName} さん` : 'MORRIS'}
+              </span>
+              <strong>{centerText}</strong>
+              <span>
+                {activity?.to !== null && activity?.to !== undefined
+                  ? `${activity.from !== null ? pointName(activity.from) + ' → ' : ''}${pointName(activity.to)}`
+                  : ''}
+              </span>
+              {playing && <small>次：{playerName(game.turn)} さん</small>}
+            </div>
             <div className="board-caption">NINE MEN’S MORRIS</div>
           </div>
           <div className="status-bar">
@@ -263,24 +452,23 @@ export default function Home() {
             </span>
             {playing && <strong>{phase}</strong>}
           </div>
-          {room && (
-            <p className="instruction">
-              {game.status === 'finished'
-                ? game.reason
-                : game.status === 'waiting'
-                  ? '名前を入れて参加したら、部屋を作った人が対局を開始できます。'
-                  : myColor === 0
-                    ? '観戦中です。次の対局で交代します。'
-                    : canPlay
-                      ? game.capture
-                        ? '3つ揃いました。相手の駒を1つ選んで取ってください。'
-                        : game.remaining[1] + game.remaining[2] > 0
-                          ? '光る交点を選んで、駒を置いてください。'
-                          : selected === null
-                            ? '動かしたい自分の駒を選んでください。'
-                            : '移動先の光る交点を選んでください。'
-                      : '相手の一手を待っています。'}
+          {playing && game.capture && (
+            <p className="capture-help">
+              <strong>取れる駒が光っています。</strong>{' '}
+              3つ並んだ駒（ミル）は保護されています。ただし相手の駒が全部ミルに入っていれば、どれでも取れます。
             </p>
+          )}
+          {room?.you && myColor > 0 && game.status !== 'waiting' && (
+            <div className="undo-control">
+              <button
+                className="secondary"
+                disabled={busy || !connected || !room.canUndo || !!room.undo}
+                onClick={() => void action('undo-request')}
+              >
+                ↶ 1手戻すことを申請
+              </button>
+              <span>対戦する2人の同意で戻します</span>
+            </div>
           )}
         </section>
         <aside>
@@ -325,7 +513,7 @@ export default function Home() {
               <div className="seats">
                 ● 対戦する2人
                 <br />◉ 観戦する1人
-                <br />↻ 対局ごとに交代
+                <br />☑ 部屋を作った人が対戦者を選択
               </div>
             </>
           ) : (
@@ -334,31 +522,50 @@ export default function Home() {
                 <p className="eyebrow">AT THE TABLE</p>
                 <span>{room.members.length} / 3</span>
               </div>
-              {[...pair, [0, 1, 2].find((i) => !pair.includes(i))!].map(
-                (idx, rank) => {
-                  const m = room.members[idx];
-                  return (
-                    <div
-                      className={`player-card ${playing && game.turn === rank + 1 ? 'active' : ''}`}
-                      key={idx}
-                    >
-                      <div className={`avatar avatar-${rank + 1}`}>
-                        {rank === 0 ? '●' : rank === 1 ? '◆' : '◉'}
+              {(pair.length === 2
+                ? [...pair, ...[0, 1, 2].filter((i) => !pair.includes(i))]
+                : [0, 1, 2]
+              ).map((idx, rank) => {
+                const m = room.members[idx];
+                return (
+                  <div
+                    className={`player-card ${playing && game.turn === rank + 1 && pair.length === 2 ? 'active' : ''}`}
+                    key={idx}
+                  >
+                    <div className={`avatar avatar-${rank + 1}`}>
+                      {pair.length !== 2
+                        ? '○'
+                        : rank === 0
+                          ? '●'
+                          : rank === 1
+                            ? '◆'
+                            : '◉'}
+                    </div>
+                    <div>
+                      <div className="player-name">
+                        {m?.name || '参加待ち'}{' '}
+                        {m?.id === room.you && <small>あなた</small>}
                       </div>
-                      <div>
-                        <div className="player-name">
-                          {m?.name || '参加待ち'}{' '}
-                          {m?.id === room.you && <small>あなた</small>}
-                        </div>
-                        <div className="player-meta">
-                          {rank === 2
-                            ? '観戦 / 次局で交代'
+                      <div className="player-meta">
+                        {pair.length !== 2
+                          ? '役割を選んでください'
+                          : rank === 2
+                            ? '観戦'
                             : `${rank === 0 ? '白 · 先手' : '琥珀 · 後手'}　盤上 ${count(game, rank + 1)} / 手元 ${game.remaining[rank + 1]}`}
-                        </div>
                       </div>
                     </div>
-                  );
-                },
+                  </div>
+                );
+              })}
+              {myIndex === 0 && game.status !== 'playing' && (
+                <PlayerPicker
+                  onDirty={setSelectionDirty}
+                  room={room}
+                  busy={busy || !connected || !!room.undo}
+                  onSave={(players) =>
+                    void action('select-players', { players })
+                  }
+                />
               )}
               <div className="invite">
                 <button className="secondary" onClick={() => void copy()}>
@@ -380,7 +587,14 @@ export default function Home() {
                 (myIndex === 0 ? (
                   <button
                     className="primary"
-                    disabled={busy || room.members.length < 3 || !connected}
+                    disabled={
+                      busy ||
+                      selectionDirty ||
+                      room.members.length < 3 ||
+                      room.nextPlayers.length !== 2 ||
+                      !connected ||
+                      !!room.undo
+                    }
                     onClick={() => void action('start')}
                   >
                     {room.members.length < 3
@@ -388,7 +602,7 @@ export default function Home() {
                         (3 - room.members.length) +
                         '人の参加を待っています'
                       : game.status === 'finished'
-                        ? '交代して、次の対局へ →'
+                        ? '選んだ2人で、次の対局へ →'
                         : '対局をはじめる →'}
                   </button>
                 ) : (
@@ -400,13 +614,16 @@ export default function Home() {
                 ))}
               {playing && myColor > 0 && (
                 <AlertDialog open={resignOpen} onOpenChange={setResignOpen}>
-                  <AlertDialogTrigger className="text-button" disabled={busy}>
+                  <AlertDialogTrigger
+                    className="text-button"
+                    disabled={busy || !connected || !!room.undo}
+                  >
                     この対局を投了する
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogTitle>投了しますか？</AlertDialogTitle>
                     <AlertDialogDescription>
-                      相手の勝ちでこの対局を終了します。次の対局では観戦者と交代します。
+                      相手の勝ちでこの対局を終了します。次の対戦者は部屋を作った人が選べます。
                     </AlertDialogDescription>
                     <AlertDialogFooter>
                       <AlertDialogCancel>続ける</AlertDialogCancel>
@@ -434,7 +651,7 @@ export default function Home() {
             <ol>
               <li>交互に9個ずつ駒を置きます。</li>
               <li>
-                線の上に自分の駒を3個並べると「ミル」。相手の駒を1個取れます。ミル外の駒を優先します。
+                線の上に自分の駒を3個並べると「ミル」。相手の駒を1個取れます。ミル内の駒は保護されますが、相手の駒が全てミル内ならどれでも取れます。
               </li>
               <li>
                 全て置いたら、線でつながる隣の交点へ移動。自分の駒が3個なら、空いた交点へ自由に飛べます。
@@ -445,8 +662,7 @@ export default function Home() {
               </li>
             </ol>
             <p>
-              組み合わせは参加順で 1–2 → 2–3 → 3–1
-              と交代。再接続は同じブラウザでこのURLを開いてください。
+              対戦者2人は部屋を作った人が選び、残りの1人が観戦します。対局中の変更はできません。1手戻すには、申請した人と相手の同意が必要です（直近40手まで）。再接続は同じブラウザでこのURLを開いてください。
             </p>
             <a
               href="https://www.flyordie.com/mill/rules"

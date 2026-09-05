@@ -1,17 +1,11 @@
 import { roomDb } from '@/db/rooms';
+import { newGame } from '@/lib/game';
 import {
-  newGame,
-  move,
-  resign,
-  seats,
-  type Game,
-  type Member,
-} from '@/lib/game';
-type Saved = {
-  members: (Member & { key: string })[];
-  round: number;
-  game: Game;
-};
+  normalizeRoom,
+  changeRoom,
+  RoomError,
+  type SavedRoom as Saved,
+} from '@/lib/room';
 const reply = (body: unknown, status = 200, cookie?: string) =>
   Response.json(body, {
     status,
@@ -34,14 +28,22 @@ async function hash(s: string) {
     .join('');
 }
 const validId = (id: string) => /^[a-f0-9]{32}$/.test(id);
-const view = (id: string, state: Saved, revision: number, key: string) => ({
-  id,
-  members: state.members.map(({ id, name }) => ({ id, name })),
-  round: state.round,
-  game: state.game,
-  revision,
-  you: state.members.find((m) => m.key === key)?.id || null,
-});
+const view = (id: string, raw: Saved, revision: number, key: string) => {
+  const state = normalizeRoom(raw);
+  return {
+    players: state.players,
+    nextPlayers: state.nextPlayers,
+    undo: state.undo,
+    canUndo: !!state.history?.length,
+    activity: state.activity,
+    id,
+    members: state.members.map(({ id, name }) => ({ id, name })),
+    round: state.round,
+    game: state.game,
+    revision,
+    you: state.members.find((m) => m.key === key)?.id || null,
+  };
+};
 export async function GET(r: Request) {
   const id = new URL(r.url).searchParams.get('id') || '';
   if (!validId(id)) return reply({ error: '部屋URLを確認してください' }, 400);
@@ -97,7 +99,7 @@ export async function POST(r: Request) {
       .bind(id)
       .first<{ state: string; revision: number }>();
     if (!row) return reply({ error: '部屋が見つかりません' }, 404);
-    const state: Saved = JSON.parse(row.state);
+    let state: Saved = normalizeRoom(JSON.parse(row.state));
     const index = state.members.findIndex((m) => m.key === key);
     if (b.action === 'join') {
       if (index >= 0)
@@ -119,22 +121,7 @@ export async function POST(r: Request) {
           { error: '盤面が更新されました。もう一度操作してください' },
           409,
         );
-      const player = (seats(state.round).indexOf(index) + 1) as 0 | 1 | 2;
-      if (b.action === 'start') {
-        if (index !== 0) throw Error('部屋を作った人が開始できます');
-        if (state.members.length !== 3)
-          throw Error('3人が集まるのを待っています');
-        if (state.game.status === 'playing') throw Error('すでに対局中です');
-        if (state.game.status === 'finished') state.round++;
-        state.game = newGame();
-        state.game.status = 'playing';
-      } else if (b.action === 'move') {
-        if (!player) return reply({ error: '観戦中は駒を動かせません' }, 403);
-        state.game = move(state.game, player, b.from, b.to);
-      } else if (b.action === 'resign') {
-        if (!player) return reply({ error: '観戦中は投了できません' }, 403);
-        state.game = resign(state.game, player);
-      } else return reply({ error: '不明な操作です' }, 400);
+      state = changeRoom(state, index, b);
     }
     const result = await roomDb()
       .prepare(
@@ -156,7 +143,7 @@ export async function POST(r: Request) {
             ? e.message
             : '通信に失敗しました。もう一度お試しください',
       },
-      400,
+      e instanceof RoomError ? e.status : 400,
     );
   }
 }
