@@ -7,7 +7,7 @@ async function post(client, body) {
     headers: { 'Content-Type': 'application/json', Cookie: cookies[client] },
     body: JSON.stringify(body),
   });
-  const cookie = r.headers.get('set-cookie');
+  const cookie = r.headers.getSetCookie().find((value) => value.startsWith('morris_device='));
   if (cookie) cookies[client] = cookie.split(';')[0];
   const data = await r.json();
   return { status: r.status, ...data };
