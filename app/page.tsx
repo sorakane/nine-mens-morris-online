@@ -21,12 +21,20 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from '@/components/ui/select';
 import { Music } from '@/components/music';
 import { PlayerPicker } from '@/components/player-picker';
 export default function Home() {
   const [room, setRoom] = useState<Room | null>(null),
     [roomId, setRoomId] = useState(''),
     [name, setName] = useState(''),
+    [capacity, setCapacity] = useState<2 | 3>(2),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [connected, setConnected] = useState(false),
@@ -95,6 +103,7 @@ export default function Home() {
           action,
           id: roomId,
           name,
+          capacity,
           revision: room?.revision,
           ...extra,
         }),
@@ -272,7 +281,9 @@ export default function Home() {
                     ? `${playerName(game.turn)} さん：${phase}`
                     : game.status === 'finished'
                       ? '対局が終了しました'
-                      : '対戦2人・観戦1人'}
+                      : room.capacity === 2
+                        ? '2人で対戦'
+                        : '2人で対戦・観戦席あり'}
                 </strong>
                 <p>{instruction}</p>
               </div>
@@ -475,7 +486,7 @@ export default function Home() {
           {!room?.you ? (
             <>
               <p className="eyebrow">PLAY TOGETHER</p>
-              <h2>{roomId ? '対戦室へようこそ。' : 'いつもの3人で。'}</h2>
+              <h2>{roomId ? '対戦室へようこそ。' : '一緒に、ひと勝負。'}</h2>
               <p className="muted">
                 {roomId
                   ? '名前を入れて、この部屋に参加しましょう。'
@@ -487,6 +498,35 @@ export default function Home() {
                   void action(roomId ? 'join' : 'create');
                 }}
               >
+                {!roomId && (
+                  <div className="room-mode">
+                    <label id="room-mode-label">遊ぶ人数</label>
+                    <Select
+                      value={capacity}
+                      onValueChange={(value) => {
+                        if (value === 2 || value === 3) setCapacity(value);
+                      }}
+                      disabled={busy}
+                      items={[
+                        { value: 2, label: '2人で対戦' },
+                        { value: 3, label: '観戦席あり・最大3人' },
+                      ]}
+                    >
+                      <SelectTrigger aria-labelledby="room-mode-label">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={2}>2人で対戦</SelectItem>
+                        <SelectItem value={3}>観戦席あり・最大3人</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="muted">
+                      {capacity === 2
+                        ? '対戦相手を1人招待して遊べます。'
+                        : '対戦者2人が揃えば開始できます。観戦者はあとから参加できます。'}
+                    </p>
+                  </div>
+                )}
                 <label htmlFor="name">あなたの名前</label>
                 <input
                   id="name"
@@ -512,7 +552,11 @@ export default function Home() {
               </form>
               <div className="seats">
                 ● 対戦する2人
-                <br />◉ 観戦する1人
+                {(room?.capacity ?? capacity) === 3 && (
+                  <>
+                    <br />◉ 観戦席あり（任意）
+                  </>
+                )}
                 <br />☑ 部屋を作った人が対戦者を選択
               </div>
             </>
@@ -520,11 +564,19 @@ export default function Home() {
             <>
               <div className="side-title">
                 <p className="eyebrow">AT THE TABLE</p>
-                <span>{room.members.length} / 3</span>
+                <span>
+                  参加 {room.members.length}人 / 定員 {room.capacity}人
+                </span>
               </div>
               {(pair.length === 2
-                ? [...pair, ...[0, 1, 2].filter((i) => !pair.includes(i))]
-                : [0, 1, 2]
+                ? [
+                    ...pair,
+                    ...Array.from(
+                      { length: room.capacity },
+                      (_, i) => i,
+                    ).filter((i) => !pair.includes(i)),
+                  ]
+                : Array.from({ length: room.capacity }, (_, i) => i)
               ).map((idx, rank) => {
                 const m = room.members[idx];
                 return (
@@ -543,7 +595,10 @@ export default function Home() {
                     </div>
                     <div>
                       <div className="player-name">
-                        {m?.name || '参加待ち'}{' '}
+                        {m?.name ||
+                          (rank === 2 && pair.length === 2
+                            ? '観戦席（空席）'
+                            : '参加待ち')}{' '}
                         {m?.id === room.you && <small>あなた</small>}
                       </div>
                       <div className="player-meta">
@@ -581,7 +636,11 @@ export default function Home() {
                   onFocus={(e) => e.target.select()}
                   className="url"
                 />
-                <p>このURLをあと2人に送ってください。</p>
+                <p>
+                  {room.members.length < room.capacity
+                    ? `一緒に遊ぶ人へこのURLを送ってください（あと${room.capacity - room.members.length}人参加できます）。`
+                    : '参加済みの人は、このURLから戻れます。'}
+                </p>
               </div>
               {game.status !== 'playing' &&
                 (myIndex === 0 ? (
@@ -590,16 +649,16 @@ export default function Home() {
                     disabled={
                       busy ||
                       selectionDirty ||
-                      room.members.length < 3 ||
+                      room.members.length < 2 ||
                       room.nextPlayers.length !== 2 ||
                       !connected ||
                       !!room.undo
                     }
                     onClick={() => void action('start')}
                   >
-                    {room.members.length < 3
+                    {room.members.length < 2
                       ? 'あと' +
-                        (3 - room.members.length) +
+                        (2 - room.members.length) +
                         '人の参加を待っています'
                       : game.status === 'finished'
                         ? '選んだ2人で、次の対局へ →'
@@ -662,7 +721,7 @@ export default function Home() {
               </li>
             </ol>
             <p>
-              対戦者2人は部屋を作った人が選び、残りの1人が観戦します。対局中の変更はできません。1手戻すには、申請した人と相手の同意が必要です（直近40手まで）。再接続は同じブラウザでこのURLを開いてください。
+              対戦者2人は部屋を作った人が選びます。「観戦席あり」の部屋では、対戦者以外の参加者が観戦します。対局中の変更はできません。1手戻すには、申請した人と相手の同意が必要です（直近40手まで）。再接続は同じブラウザでこのURLを開いてください。
             </p>
             <a
               href="https://www.flyordie.com/mill/rules"

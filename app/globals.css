@@ -828,3 +828,16 @@ a.brand {
     animation: none !important;
   }
 }
+.room-mode [data-slot='select-trigger'] {
+  width: 100%;
+  height: auto;
+  min-height: 44px;
+  white-space: normal;
+  padding: 11px;
+  background: #1a2821;
+}
+.room-mode .muted {
+  font-size: 13px;
+  line-height: 1.8;
+  margin: 9px 0 0;
+}

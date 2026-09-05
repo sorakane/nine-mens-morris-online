@@ -8,6 +8,7 @@ import {
   type Activity,
 } from './game.ts';
 export type SavedRoom = {
+  capacity?: 2 | 3;
   members: (Member & { key: string })[];
   round: number;
   game: Game;
@@ -25,6 +26,7 @@ export class RoomError extends Error {
   }
 }
 export function normalizeRoom(s: SavedRoom) {
+  s.capacity ??= 3;
   s.players ??= s.game.status === 'waiting' ? [] : seats(s.round);
   s.nextPlayers ??= [...s.players];
   s.history ??= [];
@@ -76,8 +78,8 @@ export function changeRoom(
     }
     case 'start':
       if (index !== 0) throw new RoomError('部屋を作った人が開始できます', 403);
-      if (s.members.length !== 3)
-        throw new RoomError('3人が集まるのを待っています');
+      if (s.members.length < 2)
+        throw new RoomError('対戦する2人が揃うのを待っています');
       if (s.game.status === 'playing') throw new RoomError('すでに対局中です');
       if (s.nextPlayers!.length !== 2)
         throw new RoomError('先に対戦者2人を選んでください');

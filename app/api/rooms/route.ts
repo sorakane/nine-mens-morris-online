@@ -31,6 +31,7 @@ const validId = (id: string) => /^[a-f0-9]{32}$/.test(id);
 const view = (id: string, raw: Saved, revision: number, key: string) => {
   const state = normalizeRoom(raw);
   return {
+    capacity: state.capacity,
     players: state.players,
     nextPlayers: state.nextPlayers,
     undo: state.undo,
@@ -78,8 +79,15 @@ export async function POST(r: Request) {
     const name = typeof b.name === 'string' ? b.name.trim().slice(0, 20) : '';
     if (b.action === 'create') {
       if (!name) return reply({ error: '名前を入力してください' }, 400);
+      const capacity = b.capacity ?? 3;
+      if (capacity !== 2 && capacity !== 3)
+        return reply(
+          { error: '2人対戦、または観戦席ありを選んでください' },
+          400,
+        );
       const id = crypto.randomUUID().replaceAll('-', '');
       const state: Saved = {
+        capacity,
         members: [{ id: crypto.randomUUID(), name, key }],
         round: 1,
         game: newGame(),
@@ -104,11 +112,10 @@ export async function POST(r: Request) {
     if (b.action === 'join') {
       if (index >= 0)
         return reply(view(id, state, row.revision, key), 200, cookie);
-      if (state.members.length >= 3)
+      if (state.members.length >= state.capacity!)
         return reply(
           {
-            error:
-              'この部屋は3人で満席です。参加済みの方は元のブラウザで開いてください。',
+            error: `この部屋は定員${state.capacity}人で満席です。参加済みの方は元のブラウザで開いてください。`,
           },
           409,
         );

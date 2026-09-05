@@ -121,3 +121,19 @@ test('changing next pair after a game keeps the finished winner attached to orig
   a.deepEqual(s.players, [0, 2]);
   a.equal(s.history!.length, 0);
 });
+
+test('two participants can start with or without an optional spectator seat', () => {
+  for (const capacity of [2, 3] as const) {
+    const s = fresh();
+    s.capacity = capacity;
+    s.members = s.members.slice(0, 2);
+    const selected = changeRoom(s, 0, {
+      action: 'select-players',
+      players: [0, 1],
+    });
+    const playing = changeRoom(selected, 0, { action: 'start' });
+    a.equal(playing.game.status, 'playing');
+    a.equal(playing.members.length, 2);
+    a.equal(playing.capacity, capacity);
+  }
+});

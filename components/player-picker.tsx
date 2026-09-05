@@ -69,7 +69,11 @@ export function PlayerPicker({
       ))}
       <p>
         {valid
-          ? `${spectator?.name || '残りの1人'} さんが観戦します。`
+          ? spectator
+            ? `${spectator.name} さんが観戦します。`
+            : room.capacity === 3
+              ? 'この2人で開始できます。観戦席は空いています。'
+              : '選んだ2人で対戦します。'
           : '別々の参加者を2人選んでください。'}
       </p>
       <button
