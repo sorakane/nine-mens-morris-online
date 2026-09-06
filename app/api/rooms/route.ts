@@ -1,3 +1,4 @@
+import { recordConfirmedEvent } from '@/lib/confirmed-events';
 import { roomDb } from '@/db/rooms';
 import { newGame } from '@/lib/game';
 import {
@@ -31,6 +32,9 @@ const validId = (id: string) => /^[a-f0-9]{32}$/.test(id);
 const view = (id: string, raw: Saved, revision: number, key: string) => {
   const state = normalizeRoom(raw);
   return {
+    serverTime: Date.now(),
+    events: state.events || [],
+    eventCursor: state.eventCursor || 0,
     spectatorsAllowed: state.spectatorsAllowed,
     players: state.players,
     nextPlayers: state.nextPlayers,
@@ -126,7 +130,16 @@ export async function POST(r: Request) {
           { error: '盤面が更新されました。もう一度操作してください' },
           409,
         );
+      const before = state.game;
       state = changeRoom(state, index, b);
+      recordConfirmedEvent(
+        before,
+        state,
+        id,
+        row.revision + 1,
+        b.action,
+        index,
+      );
     }
     const result = await roomDb()
       .prepare(

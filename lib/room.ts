@@ -1,3 +1,4 @@
+import type { EventFeed } from './presentation/events';
 import {
   newGame,
   move,
@@ -7,7 +8,7 @@ import {
   type Member,
   type Activity,
 } from './game.ts';
-export type SavedRoom = {
+export type SavedRoom = Partial<EventFeed> & {
   capacity?: 2 | 3; // Legacy rooms only.
   spectatorsAllowed?: boolean;
   members: (Member & { key: string })[];

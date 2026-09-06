@@ -1,0 +1,607 @@
+.presentation-stage {
+  position: relative;
+  isolation: isolate;
+  border-radius: 20px;
+}
+.presentation-surface {
+  position: relative;
+}
+.fx-layer {
+  --fx-accent: #e0fc85;
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 20px;
+  pointer-events: none;
+  z-index: 5;
+  contain: paint;
+  animation: fx-lifetime var(--fx-duration) linear both;
+}
+.fx-layer * {
+  pointer-events: none;
+}
+.fx-player-2 {
+  --fx-accent: #f5bb78;
+}
+.fx-tint {
+  position: absolute;
+  inset: 0;
+  background: #020805;
+  opacity: 0;
+  animation: fx-tint var(--fx-duration) linear both;
+}
+.fx-grid {
+  position: absolute;
+  top: 21px;
+  left: 21px;
+  right: 21px;
+  aspect-ratio: 1;
+}
+.fx-mill-markers {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  animation: fx-mark var(--fx-duration) linear both;
+}
+.fx-mill-markers line {
+  stroke: var(--fx-accent);
+  stroke-width: 0.09;
+  stroke-linecap: round;
+  opacity: 0.9;
+}
+.fx-mill-markers circle {
+  stroke: var(--fx-accent);
+  stroke-width: 0.045;
+  fill: none;
+}
+.fx-mill-markers .fx-mill-core {
+  fill: var(--fx-accent);
+  opacity: 0.3;
+  stroke: none;
+}
+.fx-speedlines {
+  position: absolute;
+  inset: -20%;
+  opacity: 0;
+  transform: rotate(-12deg);
+  background: repeating-linear-gradient(
+    0deg,
+    transparent 0 17px,
+    #e3f6a846 17px 18px,
+    transparent 18px 47px,
+    #ffffff50 47px 49px
+  );
+  animation: fx-speed var(--fx-duration) cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+.fx-cutin {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+}
+.fx-sash {
+  position: relative;
+  width: 100%;
+  min-height: 175px;
+  padding: 18px 8%;
+  color: #101b13;
+  transform: translateX(-115%) rotate(-8deg);
+  animation: fx-sash var(--fx-duration) cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+.fx-sash-ink {
+  position: absolute;
+  inset: 0 -10%;
+  background: var(--fx-accent);
+  clip-path: polygon(0 12%, 100% 0, 100% 87%, 0 100%);
+  box-shadow: 0 12px 0 #020b08;
+}
+.fx-cutin-content {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr minmax(0, 1fr);
+  align-items: center;
+  column-gap: 15px;
+}
+.fx-kicker {
+  grid-column: 1/-1;
+  font-size: 12px;
+  letter-spacing: 5px;
+  font-weight: 800;
+}
+.fx-title {
+  display: block;
+  font-size: clamp(54px, 9vw, 116px);
+  font-weight: 950;
+  font-style: italic;
+  line-height: 0.95;
+  letter-spacing: -8px;
+  transform: translateX(0);
+  animation: fx-title var(--fx-duration) cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+.fx-title-dot {
+  color: #ffffff;
+  text-shadow: 3px 2px 0 #183326;
+  margin-left: 4px;
+}
+.fx-player {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-width: 0;
+  padding-left: 15px;
+  border-left: 2px solid #172c2266;
+}
+.fx-player > span {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+.fx-player b {
+  font-size: clamp(15px, 2.5vw, 25px);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.fx-slash {
+  position: absolute;
+  right: 6%;
+  top: 8%;
+  height: 80%;
+  width: 5px;
+  background: #fff;
+  transform: skewX(-25deg);
+  opacity: 0.65;
+}
+.fx-slash-two {
+  right: 3%;
+  width: 14px;
+  opacity: 0.22;
+}
+.fx-flash {
+  position: absolute;
+  inset: 0;
+  background: #fff7d4;
+  opacity: 0;
+  animation: fx-flash var(--fx-duration) linear both;
+}
+.fx-target {
+  position: absolute;
+  width: 7%;
+  aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+}
+.fx-captured-stone {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  box-shadow: 0 3px 5px #07180b70;
+  animation: fx-stone var(--fx-duration) cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+.fx-stone-1 {
+  background: radial-gradient(circle at 33% 24%, #f5fae9, #becdab);
+  color: #5c6e4f;
+}
+.fx-stone-2 {
+  background: radial-gradient(circle at 33% 24%, #f1c18a, #b97137);
+  color: #6c3c15;
+}
+.fx-focus-ring {
+  position: absolute;
+  inset: -35%;
+  border: 3px solid var(--fx-accent);
+  border-radius: 50%;
+  animation: fx-focus var(--fx-duration) cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+.fx-impact-star {
+  position: absolute;
+  inset: -100%;
+  background: var(--fx-accent);
+  clip-path: polygon(
+    50% 0,
+    59% 38%,
+    100% 24%,
+    68% 49%,
+    100% 71%,
+    60% 61%,
+    49% 100%,
+    39% 62%,
+    0 78%,
+    30% 51%,
+    0 28%,
+    39% 39%
+  );
+  opacity: 0;
+  animation: fx-impact var(--fx-duration) linear both;
+}
+.fx-fragment {
+  position: absolute;
+  left: 45%;
+  top: 45%;
+  width: 8px;
+  height: 8px;
+  background: var(--fx-accent);
+  opacity: 0;
+  animation: fx-fragment var(--fx-duration) cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+.fx-fragment-b {
+  --fragment-x: -28px;
+  --fragment-y: 22px;
+  width: 4px;
+  height: 4px;
+}
+.fx-capture-label {
+  position: absolute;
+  top: 110%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px 7px;
+  border-radius: 3px;
+  background: #102219;
+  color: var(--fx-accent);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  animation: fx-mark var(--fx-duration) linear both;
+}
+.fx-capture .fx-speedlines {
+  display: none;
+}
+.fx-capture .fx-tint {
+  background: #04120b;
+  animation-name: fx-capture-tint;
+}
+.fx-finisher {
+  --fx-accent: #f4dc83;
+}
+@keyframes fx-lifetime {
+  0%,
+  92% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes fx-tint {
+  0% {
+    opacity: 0;
+  }
+  12%,
+  77% {
+    opacity: 0.46;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes fx-capture-tint {
+  0% {
+    opacity: 0;
+  }
+  15%,
+  60% {
+    opacity: 0.16;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+@keyframes fx-mark {
+  0% {
+    opacity: 0.4;
+  }
+  12%,
+  78% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+/* 18–29% is a visual hold (~80ms). No gameplay or networking timer is paused. */
+@keyframes fx-sash {
+  0% {
+    transform: translateX(-115%) rotate(-8deg);
+  }
+  18%,
+  29% {
+    transform: translateX(0) rotate(-8deg);
+  }
+  75% {
+    transform: translateX(1%) rotate(-8deg);
+  }
+  100% {
+    transform: translateX(115%) rotate(-8deg);
+  }
+}
+@keyframes fx-title {
+  0% {
+    transform: translateX(-35px) scale(1.08);
+    opacity: 0;
+  }
+  18%,
+  29% {
+    transform: translateX(0) scale(1.03);
+    opacity: 1;
+  }
+  75%,
+  100% {
+    transform: translateX(0) scale(1);
+    opacity: 1;
+  }
+}
+@keyframes fx-speed {
+  0% {
+    opacity: 0;
+    transform: translateX(-18%) rotate(-12deg);
+  }
+  18%,
+  60% {
+    opacity: 0.65;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(18%) rotate(-12deg);
+  }
+}
+/* One low-opacity exposure, not a repeated strobe. */
+@keyframes fx-flash {
+  0%,
+  15% {
+    opacity: 0;
+  }
+  19% {
+    opacity: 0.18;
+  }
+  27%,
+  100% {
+    opacity: 0;
+  }
+}
+/* Focus → impact/hold → a visual copy flies away; authoritative tile is already empty. */
+@keyframes fx-stone {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  18%,
+  34% {
+    opacity: 1;
+    transform: scale(1.13);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(28px, -37px) rotate(35deg) scale(0.9);
+  }
+}
+@keyframes fx-focus {
+  0% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+  18%,
+  34% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+@keyframes fx-impact {
+  0%,
+  17% {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  19%,
+  32% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  55%,
+  100% {
+    opacity: 0;
+    transform: scale(1.2);
+  }
+}
+@keyframes fx-fragment {
+  0%,
+  33% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+  34% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(var(--fragment-x, 30px), var(--fragment-y, -28px))
+      rotate(70deg);
+  }
+}
+/* Accessibility modes preserve semantic highlighting, remove motion and flashes. */
+.fx-reduced .fx-flash,
+.fx-reduced .fx-speedlines,
+.fx-reduced .fx-impact-star,
+.fx-reduced .fx-fragment {
+  display: none;
+}
+.fx-reduced .fx-sash {
+  transform: none;
+  animation: fx-soft var(--fx-duration) ease-out both;
+  min-height: 100px;
+  padding: 12px 8%;
+}
+.fx-reduced .fx-sash-ink {
+  clip-path: none;
+  inset: 0;
+  background: #13291ff2;
+  border-block: 1px solid var(--fx-accent);
+  box-shadow: none;
+}
+.fx-reduced .fx-cutin-content {
+  color: var(--fx-accent);
+}
+.fx-reduced .fx-title {
+  font-size: 52px;
+  letter-spacing: -2px;
+  animation: none;
+  transform: none;
+}
+.fx-reduced .fx-title-dot {
+  color: var(--fx-accent);
+  text-shadow: none;
+}
+.fx-reduced .fx-player {
+  border-color: #88a66c;
+}
+.fx-reduced .fx-tint {
+  display: none;
+}
+.fx-reduced .fx-captured-stone,
+.fx-reduced .fx-focus-ring {
+  animation: fx-soft var(--fx-duration) ease-out both;
+  transform: none;
+}
+@keyframes fx-soft {
+  0% {
+    opacity: 0;
+  }
+  20%,
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+.effects-settings {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.effects-settings label {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+.effects-settings [data-slot='select-trigger'] {
+  width: 100%;
+  min-height: 42px;
+}
+.effects-settings p {
+  color: #adbea9;
+  font-size: 13px;
+  line-height: 1.7;
+  margin-top: 10px;
+}
+.presentation-stage .capture-candidate:before {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border: 2px dashed #f4df84;
+  border-radius: 50%;
+  background: transparent;
+}
+.presentation-stage .capture-candidate {
+  outline: 2px solid #f4df84;
+  outline-offset: 5px;
+}
+.presentation-stage .capture-candidate:after {
+  content: '取る';
+  position: absolute;
+  top: 100%;
+  margin-top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  white-space: nowrap;
+  background: #10271b;
+  color: #f7eabe;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+.presentation-stage[data-effects='off'] .fx-layer {
+  display: none;
+}
+.presentation-stage[data-effects='off'] .node {
+  transition: none;
+}
+@media (max-width: 800px) {
+  .fx-grid {
+    top: 13px;
+    left: 13px;
+    right: 13px;
+  }
+  .fx-sash {
+    min-height: 126px;
+    padding: 14px 7%;
+  }
+  .fx-title {
+    font-size: clamp(48px, 15vw, 100px);
+    letter-spacing: -4px;
+  }
+  .fx-kicker {
+    font-size: 10px;
+    letter-spacing: 3px;
+  }
+  .fx-player > span {
+    font-size: 10px;
+    letter-spacing: 1px;
+  }
+  .fx-player b {
+    font-size: 15px;
+  }
+  .fx-target {
+    width: 8%;
+  }
+  .fx-reduced .fx-title {
+    font-size: 42px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fx-layer {
+    animation: none !important;
+  }
+  .fx-flash,
+  .fx-speedlines,
+  .fx-impact-star,
+  .fx-fragment {
+    display: none !important;
+  }
+  .fx-sash {
+    animation: none !important;
+    transform: none !important;
+    min-height: 100px;
+  }
+  .fx-sash-ink {
+    clip-path: none;
+    inset: 0;
+    background: #13291ff2;
+    border-block: 1px solid var(--fx-accent);
+  }
+  .fx-cutin-content {
+    color: var(--fx-accent);
+  }
+  .fx-title {
+    animation: none !important;
+    transform: none !important;
+    font-size: 48px;
+    letter-spacing: -2px;
+  }
+  .fx-captured-stone,
+  .fx-focus-ring {
+    animation: none !important;
+    transform: none !important;
+  }
+  .fx-tint {
+    display: none !important;
+  }
+}

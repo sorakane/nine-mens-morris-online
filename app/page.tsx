@@ -30,6 +30,9 @@ import {
 } from '@/components/ui/select';
 import { Music } from '@/components/music';
 import { PlayerPicker } from '@/components/player-picker';
+import { usePresentation } from '@/components/presentation/use-presentation';
+import { PresentationStage } from '@/components/presentation/presentation-stage';
+import { EffectsSettings } from '@/components/presentation/effects-settings';
 export default function Home() {
   const [room, setRoom] = useState<Room | null>(null),
     [roomId, setRoomId] = useState(''),
@@ -45,12 +48,14 @@ export default function Home() {
     [selectionDirty, setSelectionDirty] = useState(false),
     [url, setUrl] = useState('');
   const latest = useRef(-1);
-  function accept(data: Room) {
+  const { active, mode, changeMode, receive, disconnect } = usePresentation();
+  function accept(data: Room, latency = 0) {
     if (data.revision < latest.current) return;
     if (data.revision !== latest.current) setSelected(null);
     latest.current = data.revision;
     setRoom(data);
     setConnected(true);
+    receive(data, latency);
   }
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get('room') || '';
@@ -64,6 +69,7 @@ export default function Home() {
     let timer: ReturnType<typeof setTimeout>;
     let controller: AbortController;
     async function sync() {
+      const startedAt = performance.now();
       controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 8000);
       try {
@@ -76,9 +82,13 @@ export default function Home() {
         if (!res.ok) {
           setError(data.error || '部屋を読み込めませんでした');
           setConnected(false);
-        } else accept(data);
+          disconnect();
+        } else accept(data, performance.now() - startedAt);
       } catch {
-        if (!stop) setConnected(false);
+        if (!stop) {
+          setConnected(false);
+          disconnect();
+        }
       } finally {
         clearTimeout(timeout);
         if (!stop) timer = setTimeout(sync, 1200);
@@ -90,11 +100,12 @@ export default function Home() {
       clearTimeout(timer);
       controller?.abort();
     };
-  }, [roomId]);
+  }, [roomId, receive, disconnect]);
   async function action(action: string, extra: Record<string, unknown> = {}) {
     if (busy) return;
     setBusy(true);
     setError('');
+    const startedAt = performance.now();
     try {
       const res = await fetch('/api/rooms', {
         method: 'POST',
@@ -118,8 +129,16 @@ export default function Home() {
         setUrl(next);
         setRoomId(data.id);
       }
-      accept(data);
+      accept(data, performance.now() - startedAt);
     } catch (e) {
+      if (
+        e instanceof TypeError ||
+        (e instanceof DOMException &&
+          ['TimeoutError', 'AbortError'].includes(e.name))
+      ) {
+        setConnected(false);
+        disconnect();
+      }
       setError(e instanceof Error ? e.message : '通信に失敗しました');
     } finally {
       setBusy(false);
@@ -332,126 +351,132 @@ export default function Home() {
             <span>直前の一手</span>
             <p>{describe(activity)}</p>
           </div>
-          <div className="board">
-            <svg viewBox="-0.5 -0.5 7 7" aria-hidden="true">
-              <defs>
-                <marker
-                  id="move-arrow"
-                  viewBox="0 0 10 10"
-                  refX="8"
-                  refY="5"
-                  markerWidth="4"
-                  markerHeight="4"
-                  orient="auto-start-reverse"
-                >
-                  <path d="M0 0L10 5L0 10Z" fill="#e6fa92" />
-                </marker>
-              </defs>
-              {[0, 1, 2].map((n) => (
-                <rect
-                  key={n}
-                  x={n}
-                  y={n}
-                  width={6 - n * 2}
-                  height={6 - n * 2}
-                  fill="none"
+          <PresentationStage active={active} mode={mode}>
+            <div className="board">
+              <svg viewBox="-0.5 -0.5 7 7" aria-hidden="true">
+                <defs>
+                  <marker
+                    id="move-arrow"
+                    viewBox="0 0 10 10"
+                    refX="8"
+                    refY="5"
+                    markerWidth="4"
+                    markerHeight="4"
+                    orient="auto-start-reverse"
+                  >
+                    <path d="M0 0L10 5L0 10Z" fill="#e6fa92" />
+                  </marker>
+                </defs>
+                {[0, 1, 2].map((n) => (
+                  <rect
+                    key={n}
+                    x={n}
+                    y={n}
+                    width={6 - n * 2}
+                    height={6 - n * 2}
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth=".025"
+                  />
+                ))}
+                <path
+                  d="M3 0V2 M0 3H2 M4 3H6 M3 4V6"
                   stroke="currentColor"
                   strokeWidth=".025"
                 />
-              ))}
-              <path
-                d="M3 0V2 M0 3H2 M4 3H6 M3 4V6"
-                stroke="currentColor"
-                strokeWidth=".025"
-              />
-              {MILLS.filter(
-                (m) =>
-                  game.board[m[0]] &&
-                  m.every((i) => game.board[i] === game.board[m[0]]),
-              ).map((m, i) => (
-                <line
-                  key={i}
-                  x1={POINTS[m[0]][0]}
-                  y1={POINTS[m[0]][1]}
-                  x2={POINTS[m[2]][0]}
-                  y2={POINTS[m[2]][1]}
-                  stroke={game.board[m[0]] === 1 ? '#e9f3d8' : '#e6aa67'}
-                  strokeWidth=".045"
-                />
-              ))}
-              {POINTS.map(([x, y], i) => (
-                <circle key={i} cx={x} cy={y} r=".065" fill="currentColor" />
-              ))}
-              {activity?.from !== null &&
-                activity?.from !== undefined &&
-                activity.to !== null && (
-                  <g className="move-trail" key={JSON.stringify(activity)}>
-                    <circle
-                      cx={POINTS[activity.from][0]}
-                      cy={POINTS[activity.from][1]}
-                      r=".21"
-                      fill="none"
-                      stroke="#e6fa92"
-                      strokeWidth=".025"
-                      strokeDasharray=".06 .045"
-                    />
-                    <line
-                      x1={POINTS[activity.from][0]}
-                      y1={POINTS[activity.from][1]}
-                      x2={POINTS[activity.to][0]}
-                      y2={POINTS[activity.to][1]}
-                      stroke="#e6fa92"
-                      strokeWidth=".045"
-                      strokeDasharray=".10 .07"
-                      markerEnd="url(#move-arrow)"
-                    />
-                  </g>
-                )}
-              {POINTS.map(([x, y], i) => (
-                <text
-                  key={`label-${i}`}
-                  x={x + 0.18}
-                  y={y + 0.33}
-                  className="point-label"
-                >
-                  {pointName(i)}
-                </text>
-              ))}
-            </svg>
-            <div className="board-controls">
-              {POINTS.map(([x, y], i) => (
-                <button
-                  key={i}
-                  className={`node stone-${game.board[i]} ${selected === i ? 'selected' : ''} ${legal(i) ? 'legal' : ''} ${activity?.to === i ? 'latest-destination' : ''} ${activity?.removed === i ? 'removed' : ''} ${game.capture && game.board[i] === 3 - game.turn && !capturable(game, i) ? 'protected' : ''}`}
-                  style={{
-                    left: `${((x + 0.5) / 7) * 100}%`,
-                    top: `${((y + 0.5) / 7) * 100}%`,
-                  }}
-                  disabled={!legal(i)}
-                  onClick={() => choose(i)}
-                  aria-pressed={selected === i}
-                  aria-label={`${String.fromCharCode(65 + x)}${7 - y}：${game.board[i] === 1 ? '白の駒' : game.board[i] === 2 ? '琥珀の駒' : '空き交点'}${game.capture && legal(i) ? '、取る' : ''}`}
-                >
-                  <span>
-                    {game.board[i] === 1 ? '●' : game.board[i] === 2 ? '◆' : ''}
-                  </span>
-                </button>
-              ))}
+                {MILLS.filter(
+                  (m) =>
+                    game.board[m[0]] &&
+                    m.every((i) => game.board[i] === game.board[m[0]]),
+                ).map((m, i) => (
+                  <line
+                    key={i}
+                    x1={POINTS[m[0]][0]}
+                    y1={POINTS[m[0]][1]}
+                    x2={POINTS[m[2]][0]}
+                    y2={POINTS[m[2]][1]}
+                    stroke={game.board[m[0]] === 1 ? '#e9f3d8' : '#e6aa67'}
+                    strokeWidth=".045"
+                  />
+                ))}
+                {POINTS.map(([x, y], i) => (
+                  <circle key={i} cx={x} cy={y} r=".065" fill="currentColor" />
+                ))}
+                {activity?.from !== null &&
+                  activity?.from !== undefined &&
+                  activity.to !== null && (
+                    <g className="move-trail">
+                      <circle
+                        cx={POINTS[activity.from][0]}
+                        cy={POINTS[activity.from][1]}
+                        r=".21"
+                        fill="none"
+                        stroke="#e6fa92"
+                        strokeWidth=".025"
+                        strokeDasharray=".06 .045"
+                      />
+                      <line
+                        x1={POINTS[activity.from][0]}
+                        y1={POINTS[activity.from][1]}
+                        x2={POINTS[activity.to][0]}
+                        y2={POINTS[activity.to][1]}
+                        stroke="#e6fa92"
+                        strokeWidth=".045"
+                        strokeDasharray=".10 .07"
+                        markerEnd="url(#move-arrow)"
+                      />
+                    </g>
+                  )}
+                {POINTS.map(([x, y], i) => (
+                  <text
+                    key={`label-${i}`}
+                    x={x + 0.18}
+                    y={y + 0.33}
+                    className="point-label"
+                  >
+                    {pointName(i)}
+                  </text>
+                ))}
+              </svg>
+              <div className="board-controls">
+                {POINTS.map(([x, y], i) => (
+                  <button
+                    key={i}
+                    className={`node stone-${game.board[i]} ${selected === i ? 'selected' : ''} ${legal(i) ? 'legal' : ''} ${game.capture && capturable(game, i) ? 'capture-candidate' : ''} ${activity?.to === i ? 'latest-destination' : ''} ${activity?.removed === i ? 'removed' : ''} ${game.capture && game.board[i] === 3 - game.turn && !capturable(game, i) ? 'protected' : ''}`}
+                    style={{
+                      left: `${((x + 0.5) / 7) * 100}%`,
+                      top: `${((y + 0.5) / 7) * 100}%`,
+                    }}
+                    disabled={!legal(i)}
+                    onClick={() => choose(i)}
+                    aria-pressed={selected === i}
+                    aria-label={`${String.fromCharCode(65 + x)}${7 - y}：${game.board[i] === 1 ? '白の駒' : game.board[i] === 2 ? '琥珀の駒' : '空き交点'}${game.capture && legal(i) ? '、取る' : ''}`}
+                  >
+                    <span>
+                      {game.board[i] === 1
+                        ? '●'
+                        : game.board[i] === 2
+                          ? '◆'
+                          : ''}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <div className="board-center">
+                <span className="center-actor">
+                  {actorName ? `${actorName} さん` : 'MORRIS'}
+                </span>
+                <strong>{centerText}</strong>
+                <span>
+                  {activity?.to !== null && activity?.to !== undefined
+                    ? `${activity.from !== null ? pointName(activity.from) + ' → ' : ''}${pointName(activity.to)}`
+                    : ''}
+                </span>
+                {playing && <small>次：{playerName(game.turn)} さん</small>}
+              </div>
+              <div className="board-caption">NINE MEN’S MORRIS</div>
             </div>
-            <div className="board-center" key={JSON.stringify(activity)}>
-              <span className="center-actor">
-                {actorName ? `${actorName} さん` : 'MORRIS'}
-              </span>
-              <strong>{centerText}</strong>
-              <span>
-                {activity?.to !== null && activity?.to !== undefined
-                  ? `${activity.from !== null ? pointName(activity.from) + ' → ' : ''}${pointName(activity.to)}`
-                  : ''}
-              </span>
-              {playing && <small>次：{playerName(game.turn)} さん</small>}
-            </div>
-            <div className="board-caption">NINE MEN’S MORRIS</div>
-          </div>
+          </PresentationStage>
           <div className="status-bar">
             <span className={`dot ${connected ? 'online' : ''}`} />
             <span>
@@ -711,6 +736,7 @@ export default function Home() {
               {error}
             </p>
           )}
+          <EffectsSettings mode={mode} onChange={changeMode} />
           <details className="rules">
             <summary>遊び方と、この部屋のルール</summary>
             <ol>

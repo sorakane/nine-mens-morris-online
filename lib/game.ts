@@ -1,3 +1,4 @@
+import type { EventFeed } from './presentation/events';
 export type Stone = 0 | 1 | 2;
 export const POINTS = [
   [0, 0],
@@ -181,7 +182,8 @@ export type Activity = {
 };
 export const pointName = (i: number) =>
   String.fromCharCode(65 + POINTS[i][0]) + (7 - POINTS[i][1]);
-export type Room = {
+export type Room = Partial<EventFeed> & {
+  serverTime?: number;
   spectatorsAllowed: boolean;
   players: number[];
   nextPlayers: number[];
