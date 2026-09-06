@@ -496,6 +496,55 @@
   width: 100%;
   min-height: 42px;
 }
+.effects-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 44px;
+  margin-bottom: 10px;
+}
+.effects-toggle-row label {
+  margin: 0;
+  cursor: pointer;
+}
+.effects-toggle-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.effects-toggle-status {
+  font-size: 14px;
+  color: #dce9d7;
+  min-width: 30px;
+}
+.effects-settings .effects-switch {
+  width: 52px;
+  height: 30px;
+  padding: 3px;
+  border: 1px solid #8fa78f;
+  background: #425348;
+  cursor: pointer;
+}
+.effects-settings .effects-switch[data-checked] {
+  background: #d4f477;
+  border-color: #d4f477;
+}
+.effects-settings .effects-switch [data-slot='switch-thumb'] {
+  width: 22px;
+  height: 22px;
+  background: #f5fae9;
+  transform: translateX(0);
+  transition: transform 160ms ease-out;
+}
+.effects-settings .effects-switch[data-checked] [data-slot='switch-thumb'] {
+  background: #193323;
+  transform: translateX(22px);
+}
+.effects-settings .effects-switch:focus-visible {
+  outline: 2px solid #e6fa92;
+  outline-offset: 4px;
+}
 .effects-settings p {
   color: #adbea9;
   font-size: 13px;

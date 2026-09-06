@@ -53,7 +53,8 @@ GET / POST 応答に `eventCursor`, `events`, `serverTime` を追加する互換
 サーバー時刻で 5 秒より古いイベント、5 秒を超えたリクエストの応答からも演出を開始しません。
 タイマーは破棄し、古いコールバックが走っても現在の演出を変更できない世代管理があります。
 
-設定は Full Effects / Reduced Effects / Effects Off。localStorage に保存する端末設定です。
+設定はスライド式スイッチで ON / OFF を切り替え、ON のときに「通常の演出」「控えめな演出」を選べます。
+内部の full / reduced / off と localStorage に保存する端末設定は従来のままです。
 OS が動きを減らす設定なら初期値は Reduced（Off を保存していた場合は維持）。
 Reduced は揺れ・フラッシュ・速度線・吹き飛びを使わず穏やかな表示にします。
 OS の軽減指定は CSS と揺れ処理でも尊重します。Off でも手番、ミルの線、取れる駒の枠と案内は表示します。
