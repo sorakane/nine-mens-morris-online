@@ -134,6 +134,21 @@ test('two participants can start with or without an optional spectator seat', ()
     const playing = changeRoom(selected, 0, { action: 'start' });
     a.equal(playing.game.status, 'playing');
     a.equal(playing.members.length, 2);
-    a.equal(playing.capacity, capacity);
+    a.equal(playing.spectatorsAllowed, capacity === 3);
   }
+});
+
+test('legacy three-seat rooms now allow spectators without a capacity guard', () => {
+  const s = fresh();
+  s.capacity = 3;
+  const normalized = normalizeRoom(s);
+  a.equal(normalized.spectatorsAllowed, true);
+  for (let i = 3; i < 10; i++)
+    s.members.push({ id: `p${i}`, name: `人${i}`, key: `key${i}` });
+  let room = changeRoom(s, 0, { action: 'select-players', players: [5, 8] });
+  room = changeRoom(room, 0, { action: 'start' });
+  a.equal(room.members.length, 10);
+  room = changeRoom(room, 5, { action: 'move', to: 0 });
+  a.equal(room.game.board[0], 1);
+  a.throws(() => changeRoom(room, 9, { action: 'move', to: 3 }));
 });

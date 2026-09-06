@@ -182,7 +182,7 @@ export type Activity = {
 export const pointName = (i: number) =>
   String.fromCharCode(65 + POINTS[i][0]) + (7 - POINTS[i][1]);
 export type Room = {
-  capacity: 2 | 3;
+  spectatorsAllowed: boolean;
   players: number[];
   nextPlayers: number[];
   undo: { requester: string } | null;

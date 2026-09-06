@@ -4,7 +4,7 @@ export const metadata: Metadata = {
   title: 'MORRIS — オンライン対戦室',
   icons: { icon: '/favicon.svg' },
   description:
-    'ナインメンズモリスをオンラインで対戦。2人対戦と観戦席ありを選べて、同じURLで盤面を共有できます。',
+    'ナインメンズモリスをオンラインで対戦。対戦者2人に加え、観戦者は何人でも参加できて、同じURLで盤面を共有できます。',
 };
 export default function RootLayout({
   children,

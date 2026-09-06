@@ -8,7 +8,8 @@ import {
   type Activity,
 } from './game.ts';
 export type SavedRoom = {
-  capacity?: 2 | 3;
+  capacity?: 2 | 3; // Legacy rooms only.
+  spectatorsAllowed?: boolean;
   members: (Member & { key: string })[];
   round: number;
   game: Game;
@@ -26,7 +27,7 @@ export class RoomError extends Error {
   }
 }
 export function normalizeRoom(s: SavedRoom) {
-  s.capacity ??= 3;
+  s.spectatorsAllowed ??= s.capacity !== 2;
   s.players ??= s.game.status === 'waiting' ? [] : seats(s.round);
   s.nextPlayers ??= [...s.players];
   s.history ??= [];

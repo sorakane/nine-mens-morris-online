@@ -44,7 +44,7 @@ async function denied(client, action, status, extra = {}) {
     status,
   );
 }
-await denied(3, 'join', 409, { name: '満席確認' });
+await act(3, 'join', { name: '追加観戦者' });
 await denied(1, 'select-players', 403, { players: [0, 1] });
 await denied(0, 'start', 400);
 await act(0, 'select-players', { players: [2, 1] });

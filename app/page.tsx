@@ -34,7 +34,7 @@ export default function Home() {
   const [room, setRoom] = useState<Room | null>(null),
     [roomId, setRoomId] = useState(''),
     [name, setName] = useState(''),
-    [capacity, setCapacity] = useState<2 | 3>(2),
+    [spectatorsAllowed, setSpectatorsAllowed] = useState(true),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [connected, setConnected] = useState(false),
@@ -103,7 +103,7 @@ export default function Home() {
           action,
           id: roomId,
           name,
-          capacity,
+          spectatorsAllowed,
           revision: room?.revision,
           ...extra,
         }),
@@ -281,7 +281,7 @@ export default function Home() {
                     ? `${playerName(game.turn)} さん：${phase}`
                     : game.status === 'finished'
                       ? '対局が終了しました'
-                      : room.capacity === 2
+                      : !room.spectatorsAllowed
                         ? '2人で対戦'
                         : '2人で対戦・観戦席あり'}
                 </strong>
@@ -500,28 +500,31 @@ export default function Home() {
               >
                 {!roomId && (
                   <div className="room-mode">
-                    <label id="room-mode-label">遊ぶ人数</label>
+                    <label id="room-mode-label">観戦の設定</label>
                     <Select
-                      value={capacity}
+                      value={spectatorsAllowed}
                       onValueChange={(value) => {
-                        if (value === 2 || value === 3) setCapacity(value);
+                        if (typeof value === 'boolean')
+                          setSpectatorsAllowed(value);
                       }}
                       disabled={busy}
                       items={[
-                        { value: 2, label: '2人で対戦' },
-                        { value: 3, label: '観戦席あり・最大3人' },
+                        { value: false, label: '対戦者2人のみ' },
+                        { value: true, label: '観戦あり・人数制限なし' },
                       ]}
                     >
                       <SelectTrigger aria-labelledby="room-mode-label">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value={2}>2人で対戦</SelectItem>
-                        <SelectItem value={3}>観戦席あり・最大3人</SelectItem>
+                        <SelectItem value={false}>対戦者2人のみ</SelectItem>
+                        <SelectItem value={true}>
+                          観戦あり・人数制限なし
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="muted">
-                      {capacity === 2
+                      {!spectatorsAllowed
                         ? '対戦相手を1人招待して遊べます。'
                         : '対戦者2人が揃えば開始できます。観戦者はあとから参加できます。'}
                     </p>
@@ -552,9 +555,9 @@ export default function Home() {
               </form>
               <div className="seats">
                 ● 対戦する2人
-                {(room?.capacity ?? capacity) === 3 && (
+                {(room?.spectatorsAllowed ?? spectatorsAllowed) && (
                   <>
-                    <br />◉ 観戦席あり（任意）
+                    <br />◉ 観戦人数の制限なし
                   </>
                 )}
                 <br />☑ 部屋を作った人が対戦者を選択
@@ -564,19 +567,20 @@ export default function Home() {
             <>
               <div className="side-title">
                 <p className="eyebrow">AT THE TABLE</p>
-                <span>
-                  参加 {room.members.length}人 / 定員 {room.capacity}人
-                </span>
+                <span>参加 {room.members.length}人</span>
               </div>
               {(pair.length === 2
                 ? [
                     ...pair,
                     ...Array.from(
-                      { length: room.capacity },
+                      { length: Math.max(2, room.members.length) },
                       (_, i) => i,
                     ).filter((i) => !pair.includes(i)),
                   ]
-                : Array.from({ length: room.capacity }, (_, i) => i)
+                : Array.from(
+                    { length: Math.max(2, room.members.length) },
+                    (_, i) => i,
+                  )
               ).map((idx, rank) => {
                 const m = room.members[idx];
                 return (
@@ -584,7 +588,7 @@ export default function Home() {
                     className={`player-card ${playing && game.turn === rank + 1 && pair.length === 2 ? 'active' : ''}`}
                     key={idx}
                   >
-                    <div className={`avatar avatar-${rank + 1}`}>
+                    <div className={`avatar avatar-${Math.min(rank + 1, 3)}`}>
                       {pair.length !== 2
                         ? '○'
                         : rank === 0
@@ -596,7 +600,7 @@ export default function Home() {
                     <div>
                       <div className="player-name">
                         {m?.name ||
-                          (rank === 2 && pair.length === 2
+                          (rank >= 2 && pair.length === 2
                             ? '観戦席（空席）'
                             : '参加待ち')}{' '}
                         {m?.id === room.you && <small>あなた</small>}
@@ -604,7 +608,7 @@ export default function Home() {
                       <div className="player-meta">
                         {pair.length !== 2
                           ? '役割を選んでください'
-                          : rank === 2
+                          : rank >= 2
                             ? '観戦'
                             : `${rank === 0 ? '白 · 先手' : '琥珀 · 後手'}　盤上 ${count(game, rank + 1)} / 手元 ${game.remaining[rank + 1]}`}
                       </div>
@@ -637,9 +641,11 @@ export default function Home() {
                   className="url"
                 />
                 <p>
-                  {room.members.length < room.capacity
-                    ? `一緒に遊ぶ人へこのURLを送ってください（あと${room.capacity - room.members.length}人参加できます）。`
-                    : '参加済みの人は、このURLから戻れます。'}
+                  {room.spectatorsAllowed
+                    ? '観戦する人にもこのURLを送れます。観戦人数に上限はありません。'
+                    : room.members.length < 2
+                      ? '対戦相手にこのURLを送ってください。'
+                      : '参加済みの人は、このURLから戻れます。'}
                 </p>
               </div>
               {game.status !== 'playing' &&
@@ -721,7 +727,7 @@ export default function Home() {
               </li>
             </ol>
             <p>
-              対戦者2人は部屋を作った人が選びます。「観戦席あり」の部屋では、対戦者以外の参加者が観戦します。対局中の変更はできません。1手戻すには、申請した人と相手の同意が必要です（直近40手まで）。再接続は同じブラウザでこのURLを開いてください。
+              対戦者2人は部屋を作った人が選びます。「観戦あり」の部屋では、対戦者以外の参加者が何人でも観戦できます。対局中の変更はできません。1手戻すには、申請した人と相手の同意が必要です（直近40手まで）。再接続は同じブラウザでこのURLを開いてください。
             </p>
             <a
               href="https://www.flyordie.com/mill/rules"

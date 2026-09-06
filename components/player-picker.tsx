@@ -34,9 +34,9 @@ export function PlayerPicker({
   useEffect(() => {
     onDirty(changed);
   }, [changed, onDirty]);
-  const spectator = valid
-    ? room.members.find((_, i) => i !== white && i !== amber)
-    : null;
+  const spectators = valid
+    ? room.members.filter((_, i) => i !== white && i !== amber)
+    : [];
   return (
     <div className="player-picker">
       <h3>
@@ -69,10 +69,10 @@ export function PlayerPicker({
       ))}
       <p>
         {valid
-          ? spectator
-            ? `${spectator.name} さんが観戦します。`
-            : room.capacity === 3
-              ? 'この2人で開始できます。観戦席は空いています。'
+          ? spectators.length > 0
+            ? `観戦：${spectators.map((m) => m.name).join('、')}（${spectators.length}人）`
+            : room.spectatorsAllowed
+              ? 'この2人で開始できます。観戦者は何人でも参加できます。'
               : '選んだ2人で対戦します。'
           : '別々の参加者を2人選んでください。'}
       </p>
