@@ -1,10 +1,24 @@
 import type { Metadata } from 'next';
 import './globals.css';
+const title = 'MORRIS｜ナインメンズモリス・オンライン対戦';
+const description =
+  '3つ並べて、相手の駒を取る。2人で遊ぶボードゲーム「ナインメンズモリス」。招待URLから同じ対戦室に参加でき、何人でも観戦できます。';
 export const metadata: Metadata = {
-  title: 'MORRIS — オンライン対戦室',
+  title,
   icons: { icon: '/favicon.svg' },
-  description:
-    'ナインメンズモリスをオンラインで対戦。対戦者2人に加え、観戦者は何人でも参加できて、同じURLで盤面を共有できます。',
+  description,
+  openGraph: {
+    type: 'website',
+    locale: 'ja_JP',
+    siteName: 'MORRIS',
+    title,
+    description,
+  },
+  twitter: {
+    card: 'summary',
+    title,
+    description,
+  },
 };
 export default function RootLayout({
   children,
