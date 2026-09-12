@@ -33,7 +33,14 @@ import { PlayerPicker } from '@/components/player-picker';
 import { usePresentation } from '@/components/presentation/use-presentation';
 import { PresentationStage } from '@/components/presentation/presentation-stage';
 import { EffectsSettings } from '@/components/presentation/effects-settings';
-export default function Home() {
+import { chooseCpuMove } from '@/lib/cpu';
+import {
+  createCpuMatch,
+  cpuAction,
+  cpuView,
+  type CpuMatch,
+} from '@/lib/cpu-match';
+export default function Home({ cpu = false }: { cpu?: boolean }) {
   const [room, setRoom] = useState<Room | null>(null),
     [roomId, setRoomId] = useState(''),
     [name, setName] = useState(''),
@@ -48,6 +55,7 @@ export default function Home() {
     [selectionDirty, setSelectionDirty] = useState(false),
     [url, setUrl] = useState('');
   const latest = useRef(-1);
+  const localMatch = useRef<CpuMatch | null>(null);
   const { active, mode, changeMode, receive, disconnect } = usePresentation();
   function accept(data: Room, latency = 0) {
     if (data.revision < latest.current) return;
@@ -58,11 +66,37 @@ export default function Home() {
     receive(data, latency);
   }
   useEffect(() => {
+    if (cpu) {
+      localMatch.current = createCpuMatch('cpu-' + crypto.randomUUID());
+      latest.current = -1;
+      accept(cpuView(localMatch.current));
+      setLoaded(true);
+      return;
+    }
     const id = new URLSearchParams(window.location.search).get('room') || '';
     setRoomId(id);
     setUrl(window.location.href);
     setLoaded(true);
-  }, []);
+  }, [cpu]);
+  useEffect(() => {
+    if (!cpu || !room || room.game.status !== 'playing' || room.game.turn !== 2)
+      return;
+    const revision = room.revision;
+    const timer = setTimeout(() => {
+      const match = localMatch.current;
+      if (!match || match.revision !== revision) return;
+      try {
+        const next = chooseCpuMove(match.state.game);
+        if (!next)
+          throw Error('CPUが手を選べませんでした。1手戻してお試しください。');
+        localMatch.current = cpuAction(match, 1, 'move', next);
+        accept(cpuView(localMatch.current));
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'CPUの操作に失敗しました');
+      }
+    }, 650);
+    return () => clearTimeout(timer);
+  }, [cpu, room, receive]);
   useEffect(() => {
     if (!roomId) return;
     let stop = false;
@@ -102,6 +136,17 @@ export default function Home() {
     };
   }, [roomId, receive, disconnect]);
   async function action(action: string, extra: Record<string, unknown> = {}) {
+    if (cpu) {
+      if (!localMatch.current) return;
+      try {
+        localMatch.current = cpuAction(localMatch.current, 0, action, extra);
+        setError('');
+        accept(cpuView(localMatch.current));
+      } catch (e) {
+        setError(e instanceof Error ? e.message : '操作に失敗しました');
+      }
+      return;
+    }
     if (busy) return;
     setBusy(true);
     setError('');
@@ -304,7 +349,11 @@ export default function Home() {
                         ? '2人で対戦'
                         : '2人で対戦・観戦席あり'}
                 </strong>
-                <p>{instruction}</p>
+                <p>
+                  {cpu && playing && game.turn === 2
+                    ? 'CPUが考えています…'
+                    : instruction}
+                </p>
               </div>
             </div>
           )}
@@ -480,11 +529,13 @@ export default function Home() {
           <div className="status-bar">
             <span className={`dot ${connected ? 'online' : ''}`} />
             <span>
-              {room
-                ? connected
-                  ? '全員の盤面を同期中'
-                  : '再接続しています…'
-                : '同じURLで、同じ盤面を。'}
+              {cpu
+                ? 'CPU対戦 · この端末でプレイ'
+                : room
+                  ? connected
+                    ? '全員の盤面を同期中'
+                    : '再接続しています…'
+                  : '同じURLで、同じ盤面を。'}
             </span>
             {playing && <strong>{phase}</strong>}
           </div>
@@ -501,16 +552,84 @@ export default function Home() {
                 disabled={busy || !connected || !room.canUndo || !!room.undo}
                 onClick={() => void action('undo-request')}
               >
-                ↶ 1手戻すことを申請
+                {cpu ? '↶ 自分の手番まで戻す' : '↶ 1手戻すことを申請'}
               </button>
-              <span>対戦する2人の同意で戻します</span>
+              <span>
+                {cpu
+                  ? 'CPUの応手と自分の一手を戻せます'
+                  : '対戦する2人の同意で戻します'}
+              </span>
             </div>
           )}
         </section>
         <aside>
-          {!room?.you ? (
+          {cpu ? (
+            <>
+              <p className="eyebrow">SOLO PLAY</p>
+              <h2>CPUと、ひと勝負。</h2>
+              <p className="muted">
+                あなたは白・先手、CPUは琥珀・後手です。ミルを作って、CPUの駒を取りましょう。
+              </p>
+              {[1, 2].map((color) => (
+                <div
+                  className={`player-card ${playing && game.turn === color ? 'active' : ''}`}
+                  key={color}
+                >
+                  <div className={`avatar avatar-${color}`}>
+                    {color === 1 ? '●' : '◆'}
+                  </div>
+                  <div>
+                    <div className="player-name">
+                      {color === 1 ? 'あなた' : 'CPU'}
+                    </div>
+                    <div className="player-meta">
+                      盤上 {count(game, color)} / 手元 {game.remaining[color]}
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {game.status === 'finished' && (
+                <button
+                  className="primary"
+                  onClick={() => void action('start')}
+                >
+                  もう一度対戦する →
+                </button>
+              )}
+              {playing && (
+                <AlertDialog>
+                  <AlertDialogTrigger className="text-button">
+                    この対局を投了する
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogTitle>投了しますか？</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      CPUの勝ちで対局を終了します。終了後はもう一度遊べます。
+                    </AlertDialogDescription>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>続ける</AlertDialogCancel>
+                      <AlertDialogAction onClick={() => void action('resign')}>
+                        投了する
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+              <p className="muted">
+                対局はこの画面を開いている間だけ続きます。再読み込みすると最初からになります。
+              </p>
+              <a className="secondary cpu-entry" href="/">
+                オンライン対戦へ →
+              </a>
+            </>
+          ) : !room?.you ? (
             <>
               <p className="eyebrow">PLAY TOGETHER</p>
+              {!roomId && (
+                <a className="secondary cpu-entry" href="/cpu">
+                  1人で遊ぶ · CPU対戦 →
+                </a>
+              )}
               <h2>{roomId ? '対戦室へようこそ。' : '一緒に、ひと勝負。'}</h2>
               <p className="muted">
                 {roomId
@@ -753,7 +872,9 @@ export default function Home() {
               </li>
             </ol>
             <p>
-              対戦者2人は部屋を作った人が選びます。「観戦あり」の部屋では、対戦者以外の参加者が何人でも観戦できます。対局中の変更はできません。1手戻すには、申請した人と相手の同意が必要です（直近40手まで）。再接続は同じブラウザでこのURLを開いてください。
+              {cpu
+                ? 'CPU対戦では、あなたが白・先手です。「自分の手番まで戻す」で、駒取りも含めて一手をやり直せます。'
+                : '対戦者2人は部屋を作った人が選びます。「観戦あり」の部屋では、対戦者以外の参加者が何人でも観戦できます。対局中の変更はできません。1手戻すには、申請した人と相手の同意が必要です（直近40手まで）。再接続は同じブラウザでこのURLを開いてください。'}
             </p>
             <a
               href="https://www.flyordie.com/mill/rules"

@@ -822,3 +822,9 @@ a.brand {
   line-height: 1.8;
   margin: 9px 0 0;
 }
+.cpu-entry {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  margin: 12px 0 20px;
+}
