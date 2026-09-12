@@ -2,10 +2,12 @@ import { newGame, type Room } from './game.ts';
 import { changeRoom, type SavedRoom } from './room.ts';
 import { recordConfirmedEvent } from './confirmed-events.ts';
 export type CpuMatch = { id: string; revision: number; state: SavedRoom };
-export function createCpuMatch(id: string): CpuMatch {
+export function createCpuMatch(id: string, name = 'あなた'): CpuMatch {
+  const playerName = name.trim().slice(0, 20);
+  if (!playerName) throw Error('名前を入力してください');
   let state: SavedRoom = {
     members: [
-      { id: 'human', name: 'あなた', key: 'local-human' },
+      { id: 'human', name: playerName, key: 'local-human' },
       { id: 'cpu', name: 'CPU', key: 'local-cpu' },
     ],
     round: 1,

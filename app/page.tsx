@@ -67,9 +67,9 @@ export default function Home({ cpu = false }: { cpu?: boolean }) {
   }
   useEffect(() => {
     if (cpu) {
-      localMatch.current = createCpuMatch('cpu-' + crypto.randomUUID());
-      latest.current = -1;
-      accept(cpuView(localMatch.current));
+      try {
+        setName(localStorage.getItem('morris.cpu.name') || '');
+      } catch {}
       setLoaded(true);
       return;
     }
@@ -78,6 +78,19 @@ export default function Home({ cpu = false }: { cpu?: boolean }) {
     setUrl(window.location.href);
     setLoaded(true);
   }, [cpu]);
+  function startCpuMatch() {
+    if (!loaded || !name.trim()) return;
+    localMatch.current = createCpuMatch('cpu-' + crypto.randomUUID(), name);
+    latest.current = -1;
+    setError('');
+    accept(cpuView(localMatch.current));
+    try {
+      localStorage.setItem(
+        'morris.cpu.name',
+        localMatch.current.state.members[0].name,
+      );
+    } catch {}
+  }
   useEffect(() => {
     if (!cpu || !room || room.game.status !== 'playing' || room.game.turn !== 2)
       return;
@@ -567,27 +580,51 @@ export default function Home({ cpu = false }: { cpu?: boolean }) {
             <>
               <p className="eyebrow">SOLO PLAY</p>
               <h2>CPUと、ひと勝負。</h2>
+              {!room && (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    startCpuMatch();
+                  }}
+                >
+                  <label htmlFor="cpu-name">あなたの名前</label>
+                  <input
+                    id="cpu-name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="名前を入力"
+                    maxLength={20}
+                    required
+                    autoComplete="nickname"
+                  />
+                  <button
+                    className="primary"
+                    disabled={!loaded || !name.trim()}
+                  >
+                    CPU対戦をはじめる →
+                  </button>
+                </form>
+              )}
               <p className="muted">
                 あなたは白・先手、CPUは琥珀・後手です。ミルを作って、CPUの駒を取りましょう。
               </p>
-              {[1, 2].map((color) => (
-                <div
-                  className={`player-card ${playing && game.turn === color ? 'active' : ''}`}
-                  key={color}
-                >
-                  <div className={`avatar avatar-${color}`}>
-                    {color === 1 ? '●' : '◆'}
-                  </div>
-                  <div>
-                    <div className="player-name">
-                      {color === 1 ? 'あなた' : 'CPU'}
+              {room &&
+                [1, 2].map((color) => (
+                  <div
+                    className={`player-card ${playing && game.turn === color ? 'active' : ''}`}
+                    key={color}
+                  >
+                    <div className={`avatar avatar-${color}`}>
+                      {color === 1 ? '●' : '◆'}
                     </div>
-                    <div className="player-meta">
-                      盤上 {count(game, color)} / 手元 {game.remaining[color]}
+                    <div>
+                      <div className="player-name">{playerName(color)}</div>
+                      <div className="player-meta">
+                        盤上 {count(game, color)} / 手元 {game.remaining[color]}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))}
               {game.status === 'finished' && (
                 <button
                   className="primary"
